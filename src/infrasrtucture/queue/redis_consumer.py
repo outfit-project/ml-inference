@@ -1,5 +1,8 @@
 import redis.asyncio as redis
 
+from src.inference.domain.errors import TaskPayloadError
+
+
 class RedisConsumer:
     def __init__(
             self,
@@ -19,4 +22,4 @@ class RedisConsumer:
                 return result[1]
             return None
         except redis.RedisError:
-            raise
+            raise TaskPayloadError(f"Error reading from Redis queue {self._queue}")
