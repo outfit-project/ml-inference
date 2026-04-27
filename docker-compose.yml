@@ -1,0 +1,37 @@
+services:
+  ml-inference:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ml_inference
+    networks:
+      - inference-network
+    depends_on:
+      wardrobe-postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      redis:
+        condition: service_started
+    environment:
+      DB_HOST: wardrobe-postgres
+      DB_PORT: 5434
+      DB_NAME: wardrobe_db
+      DB_USER: admin
+      DB_PASSWORD: admin
+      REDIS_URL: redis://redis:16379/0
+      ML_TASKS_QUEUE: ml_tasks
+      ML_TASKS_DLQ: ml_tasks_dlq
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_BUCKET: wardrobe-photos
+      MINIO_ACCESS_KEY: admin
+      MINIO_SECRET_KEY: password123
+      EMBEDDING_DIM: 512
+      OPENCLIP_PRETRAINED: openai
+      PYTHONPATH: /app/src
+      OPENCLIP_MODEL_NAME: ViT-B-32
+      INFERENCE_DEVICE: cpu
+
+networks:
+  inference-backend:
+    driver: bridge
