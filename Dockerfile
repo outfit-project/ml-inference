@@ -9,4 +9,4 @@ COPY . .
 
 ENV PYTHONPATH=/app/src
 
-CMD ["python", "-m", "..."]
+CMD ["python", "-m", "src.bootstrap.entrypoint.py"]
