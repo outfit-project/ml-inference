@@ -1,9 +1,18 @@
 import asyncio
+import logging
+import sys
+import time
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 
 async def main() -> None:
-    pass
+    while True:
+        pass
 
 
-if __name__ == '__main__':
-    asyncio.run(main())
+asyncio.run(main())

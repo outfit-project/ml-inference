@@ -1,7 +1,7 @@
 import io
 from PIL import Image, UnidentifiedImageError
 
-from src.inference.domain.errors import ImageDecodeError
+from src.domain.errors import ImageDecodeError
 from src.inference.preproccess.validate import validate_image_bytes
 
 

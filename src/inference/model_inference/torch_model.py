@@ -2,7 +2,7 @@ import torch
 from open_clip import create_model_and_transforms
 from PIL import Image
 
-from src.inference.domain.interfaces.embedding_model import IEmbeddingModel
+from src.domain.interfaces.embedding_model import IEmbeddingModel
 
 
 class TorchImageEncoder:

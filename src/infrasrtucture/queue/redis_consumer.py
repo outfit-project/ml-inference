@@ -1,6 +1,6 @@
 import redis.asyncio as redis
 
-from src.inference.domain.errors import TaskPayloadError
+from src.domain.errors import TaskPayloadError
 
 
 class RedisConsumer:
