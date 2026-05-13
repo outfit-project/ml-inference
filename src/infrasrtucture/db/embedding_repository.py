@@ -3,7 +3,7 @@ import httpx
 from src.domain.schemas.items_entities import ItemEmbeddingResult
 
 
-class EmbeddingRepository:
+class DBEmbeddingRepository:
     def __init__(self, api_path: str) -> None:
         self._api = api_path
 
