@@ -12,6 +12,6 @@ class IEmbeddingModel(Protocol):
 
 
 @runtime_checkable
-class EmbeddingRepository(Protocol):
+class IEmbeddingRepository(Protocol):
     async def save(self, result: ItemEmbeddingResult):
         pass
