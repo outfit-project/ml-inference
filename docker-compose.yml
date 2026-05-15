@@ -5,22 +5,23 @@ services:
       dockerfile: Dockerfile
     container_name: ml_inference
     networks:
-      - inference-backend
+      - wardrobe-shared
     environment:
-      DB_HOST: wardrobe-postgres
-      DB_PORT: 5434
-      DB_NAME: wardrobe_db
-      DB_USER: admin
-      DB_PASSWORD: admin
-      REDIS_URL: redis://redis:16379/0
+      REDIS_URL: redis://redis:6379/0
       ML_TASKS_QUEUE: ml_tasks
       ML_TASKS_DLQ: ml_tasks_dlq
-      EMBEDDING_DIM: 512
-      OPENCLIP_PRETRAINED: openai
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: admin
+      MINIO_SECRET_KEY: password123
+      MINIO_BUCKET: wardrobe-photos
+      WARDROBE_EMBEDDING_URL: http://wardrobe-service:8000/items/embedding
+      EMBEDDING_DIM: "512"
+      OPENCLIP_PRETRAINED: ""
       PYTHONPATH: /app/src
-      OPENCLIP_MODEL_NAME: ViT-B-32
+      OPENCLIP_MODEL_NAME: hf-hub:Marqo/marqo-fashionCLIP
       INFERENCE_DEVICE: cpu
 
 networks:
-  inference-backend:
-    driver: bridge
+  wardrobe-shared:
+    external: true
+    name: ${WARDROBE_DOCKER_NETWORK:-wardrobe-service_wardrobe-network}

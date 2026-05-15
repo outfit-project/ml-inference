@@ -24,8 +24,8 @@ class InvalidTaskPayloadError(MlInferenceError):
 
 
 class TaskPayloadError(MlInferenceError):
-    def __init__(self, details: str):
-        self.details = details
+    def __init__(self, message: str):
+        self.message = message
         super().__init__(self.message)
 
 

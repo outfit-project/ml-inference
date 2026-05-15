@@ -15,7 +15,7 @@ class TorchImageEncoder:
         self._device = device
         model, _, preprocess = create_model_and_transforms(
             model_name=model_name,
-            pretrained=pretrained,
+            pretrained=pretrained if pretrained else None
         )
         self._model =model.to(self._device)
         self.preprocess = preprocess
