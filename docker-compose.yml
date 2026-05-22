@@ -6,6 +6,8 @@ services:
     container_name: ml_inference
     networks:
       - wardrobe-shared
+    env_file:
+      - ../../deploy.env
     environment:
       REDIS_URL: redis://redis:6379/0
       ML_TASKS_QUEUE: ml_tasks
@@ -14,7 +16,7 @@ services:
       MINIO_ACCESS_KEY: admin
       MINIO_SECRET_KEY: password123
       MINIO_BUCKET: wardrobe-photos
-      WARDROBE_EMBEDDING_URL: http://wardrobe-service:8000/items/embedding
+      WARDROBE_EMBEDDING_URL: http://outfit_wardrobe_api:8000/items/embedding
       EMBEDDING_DIM: "512"
       OPENCLIP_PRETRAINED: ""
       PYTHONPATH: /app/src
