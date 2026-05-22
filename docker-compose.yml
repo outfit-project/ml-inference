@@ -7,7 +7,7 @@ services:
     networks:
       - wardrobe-shared
     env_file:
-      - ../../deploy.env
+      - ../deploy.env
     environment:
       REDIS_URL: redis://redis:6379/0
       ML_TASKS_QUEUE: ml_tasks
