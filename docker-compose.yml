@@ -1,29 +1,4 @@
-services:
-  ml-inference:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: ml_inference
-    networks:
-      - wardrobe-shared
-    env_file:
-      - ../deploy.env
-    environment:
-      REDIS_URL: redis://redis:6379/0
-      ML_TASKS_QUEUE: ml_tasks
-      ML_TASKS_DLQ: ml_tasks_dlq
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_ACCESS_KEY: admin
-      MINIO_SECRET_KEY: password123
-      MINIO_BUCKET: wardrobe-photos
-      WARDROBE_EMBEDDING_URL: http://outfit_wardrobe_api:8000/items/embedding
-      EMBEDDING_DIM: "512"
-      OPENCLIP_PRETRAINED: ""
-      PYTHONPATH: /app/src
-      OPENCLIP_MODEL_NAME: hf-hub:Marqo/marqo-fashionCLIP
-      INFERENCE_DEVICE: cpu
-
-networks:
-  wardrobe-shared:
-    external: true
-    name: ${WARDROBE_DOCKER_NETWORK:-wardrobe-service_wardrobe-network}
+name: vestis
+include:
+  - path: ../../docker-compose.yml
+    env_file: ../../.env

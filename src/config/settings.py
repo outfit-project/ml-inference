@@ -30,6 +30,7 @@ class Settings:
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:16379/0")
     ML_TASKS_QUEUE: str = os.getenv("ML_TASKS_QUEUE", "ml_tasks")
     ML_TASKS_DLQ: str = os.getenv("ML_TASKS_DLQ", "ml_tasks_dlq")
+    ML_SERVICE_TOKEN: str = os.getenv("ML_SERVICE_TOKEN", "")
 
     MINIO_ENDPOINT: str | None = os.getenv("MINIO_ENDPOINT")
     MINIO_ACCESS_KEY: str | None = os.getenv("MINIO_ACCESS_KEY")
@@ -48,8 +49,8 @@ class Settings:
         default_factory=lambda: _parse_positive_int("REDIS_BLPOP_TIMEOUT_SEC", 5, minimum=1)
     )
 
-    OPENCLIP_MODEL_NAME: str = os.getenv("OPENCLIP_MODEL_NAME", "ViT-B-32")
-    OPENCLIP_PRETRAINED: str = os.getenv("OPENCLIP_PRETRAINED", "openai")
+    OPENCLIP_MODEL_NAME: str = os.getenv("OPENCLIP_MODEL_NAME", "hf-hub:Marqo/marqo-fashionCLIP")
+    OPENCLIP_PRETRAINED: str = os.getenv("OPENCLIP_PRETRAINED", "")
 
     EMBEDDING_DIM: int = field(
         default_factory=lambda: _parse_positive_int("EMBEDDING_DIM", 512, minimum=1)
@@ -59,6 +60,11 @@ class Settings:
         os.getenv("WARDROBE_EMBEDDING_URL", "http://localhost:8002/items/embedding")
         or "http://localhost:8002/items/embedding"
     ).strip()
+
+    WARDROBE_PROCESSING_URL: str = os.getenv(
+        "WARDROBE_PROCESSING_URL",
+        os.getenv("WARDROBE_EMBEDDING_URL", "http://wardrobe:8000/items/embedding").replace("/embedding", "/processing"),
+    )
 
     WORKER_MAX_RETRIES: int = field(
         default_factory=lambda: _parse_positive_int("WORKER_MAX_RETRIES", 3, minimum=1)

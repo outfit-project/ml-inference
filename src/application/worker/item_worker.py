@@ -1,85 +1,68 @@
 import asyncio
 import json
 from logging import getLogger
-
 from pydantic import ValidationError
-
-from src.application.use_cases.item_process import ProcessItemUseCase
 from src.domain.errors import PermanentError, TransientError
-from src.domain.interfaces.queues import IQueueConsumer, IDeadLetterQueue
 from src.domain.schemas.messages import ProcessingTaskSchema
 
 logger = getLogger(__name__)
 
 
 class ItemWorker:
-    def __init__(
-            self,
-            consumer: IQueueConsumer,
-            dlq: IDeadLetterQueue,
-            use_case: ProcessItemUseCase,
-            max_retries: int = 3,
-            retry_backoff_ms: int = 500,
-    ):
-        self._consumer = consumer
-        self._dlq = dlq
-        self._use_case = use_case
-        self._max_retries = max_retries
-        self._retry_backoff_ms = retry_backoff_ms
+    def __init__(self,consumer,dlq,use_case,max_retries=3,retry_backoff_ms=500):
+        self._consumer,self._dlq,self._use_case=consumer,dlq,use_case
+        self._max_retries,self._retry_backoff_ms=max_retries,retry_backoff_ms
 
-    async def run(self) -> None:
-        logger.info("Worker started, queue consumer listening")
-        while True:
-            raw = await self._consumer.consume()
-            if raw is None:
-                continue
-            try:
-                await self.handle(raw)
-            except Exception:
-                logger.exception("Unhandled worker error, message sent to DLQ")
-                await self._dlq.push(raw)
+    async def run(self):
+        raw = None
+        recovery_required = True
+        try:
+            while True:
+                try:
+                    if recovery_required:
+                        await self._consumer.recover()
+                        recovery_required = False
+                    if raw is None: raw = await self._consumer.consume()
+                    if raw is None: continue
+                    await self.handle(raw)
+                    await self._consumer.ack(raw)
+                    raw = None
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    if raw is None:
+                        recovery_required = True
+                    logger.exception('Worker operation failed; keeping message for recovery')
+                    await asyncio.sleep(2)
+        finally:
+            await self._consumer.close()
+            await self._dlq.close()
 
-    async def handle(self, raw: bytes) -> None:
-        task = self._parse(raw)
+    async def handle(self,raw):
+        task=self._parse(raw)
         if task is None:
             await self._dlq.push(raw)
             return
-
-        logger.info("Processing item_id=%s object_key=%s", task.item_id, task.object_key)
-        retries = 0
-        while True:
+        for attempt in range(self._max_retries+1):
             try:
+                await self._use_case.set_status(task,'processing')
                 await self._use_case.execute(task)
-                logger.info("Finished item_id=%s", task.item_id)
                 return
-            except PermanentError as e:
-                logger.error("Permanent error for item %s: %s", task.item_id, e)
-                await self._dlq.push(raw)
-                return
-            except TransientError as e:
-                retries += 1
-                if retries > self._max_retries:
-                    logger.error(
-                        "Max retries exceeded for item %s: %s",
-                        task.item_id,
-                        e,
-                    )
-                    await self._dlq.push(raw)
-                    return
-                wait = self._retry_backoff_ms * retries / 1000
-                logger.warning(
-                    "Transient error, retry %d/%d in %.1fs: %s",
-                    retries,
-                    self._max_retries,
-                    wait,
-                    e,
-                )
-                await asyncio.sleep(wait)
+            except PermanentError as exc:
+                error = str(exc)
+                break
+            except TransientError:
+                if attempt == self._max_retries:
+                    error = 'Photo processing is temporarily unavailable. Please retry.'
+                    break
+                await asyncio.sleep(self._retry_backoff_ms*(attempt+1)/1000)
+            except Exception:
+                logger.exception('Unexpected inference failure for item %s',task.item_id)
+                error = 'Photo processing failed. Please retry with a clear single-item photo.'
+                break
+        await self._use_case.set_status(task,'failed',error)
+        await self._dlq.push(raw)
 
-    def _parse(self, raw: bytes):
-        try:
-            payload = json.loads(raw)
-            return ProcessingTaskSchema.model_validate(payload).to_domain()
-        except (json.JSONDecodeError, ValidationError) as e:
-            logger.error("Invalid message payload, sending to DLQ: %s", e)
-            return None
+    def _parse(self,raw):
+        try: return ProcessingTaskSchema.model_validate(json.loads(raw)).to_domain()
+        except (ValueError,ValidationError,TypeError): return None

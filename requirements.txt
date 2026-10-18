@@ -1,12 +1,11 @@
-torch==2.11.0
-torchvision==0.26.0
-open-clip-torch==3.3.0
-pillow==12.2.0
-numpy==2.4.4
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.5.1+cpu
+torchvision==0.20.1+cpu
+open-clip-torch==2.32.0
+Pillow==11.3.0
+numpy==1.26.4
 redis==7.3.0
 aioboto3==15.5.0
-botocore==1.40.61
-boto3==1.40.61
 httpx==0.28.1
-pydantic==2.13.4
+pydantic==2.12.5
 python-dotenv==1.2.2

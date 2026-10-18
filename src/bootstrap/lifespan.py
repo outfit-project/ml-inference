@@ -62,8 +62,8 @@ async def startup_worker(cfg: Settings | None = None) -> ItemWorker:
     encoder = get_embedding_model()
     session = InferenceSession(encoder=encoder, expected_dim=cfg.EMBEDDING_DIM)
 
-    _db_repo = DBEmbeddingRepository(cfg.WARDROBE_EMBEDDING_URL)
-    logger.info("Wardrobe embedding API: %s", cfg.WARDROBE_EMBEDDING_URL)
+    _db_repo = DBEmbeddingRepository(cfg.WARDROBE_PROCESSING_URL, cfg.ML_SERVICE_TOKEN)
+    logger.info("Wardrobe embedding API: %s", cfg.WARDROBE_PROCESSING_URL)
 
     object_store = ObjectFetcher(
         endpoint_url=cfg.MINIO_ENDPOINT or "",

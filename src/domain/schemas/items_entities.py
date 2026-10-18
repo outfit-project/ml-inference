@@ -1,6 +1,6 @@
 from uuid import UUID
-
-from pydantic import BaseModel
+from typing import Literal
+from pydantic import BaseModel, FiniteFloat, Field
 
 
 class ItemProcessingTask(BaseModel):
@@ -11,6 +11,9 @@ class ItemProcessingTask(BaseModel):
 
 class ItemEmbeddingResult(BaseModel):
     item_id: UUID
-    embedding: list[float]
-
-
+    processing_status: Literal['ready'] = 'ready'
+    embedding: list[FiniteFloat] = Field(min_length=512,max_length=512)
+    category: str
+    subcategory: str
+    style: str
+    color_hex: str

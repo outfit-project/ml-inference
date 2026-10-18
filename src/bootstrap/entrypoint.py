@@ -2,7 +2,7 @@ import asyncio
 import logging
 import signal
 import sys
-import time
+from pathlib import Path
 
 from src.bootstrap.lifespan import startup_embedding_model, startup_worker, get_worker
 
@@ -14,8 +14,11 @@ logger = logging.getLogger(__name__)
 
 
 async def main() -> None:
+    ready_file = Path("/tmp/worker-ready")
+    ready_file.unlink(missing_ok=True)
     startup_embedding_model()
     await startup_worker()
+    ready_file.touch()
 
     loop = asyncio.get_event_loop()
     stop_event = asyncio.Event()
@@ -31,8 +34,10 @@ async def main() -> None:
         [worker_task, stop_task],
         return_when=asyncio.FIRST_COMPLETED,
     )
+    ready_file.unlink(missing_ok=True)
     for task in pending:
         task.cancel()
+    await asyncio.gather(*pending, return_exceptions=True)
     for task in done:
         if task is worker_task and not task.cancelled():
             exc = task.exception()

@@ -1,32 +1,23 @@
 import redis.asyncio as redis
 
-from src.domain.errors import TaskPayloadError
-
 
 class RedisConsumer:
-    def __init__(
-            self,
-            queue_name: str,
-            redis_url: str,
-            timeout: int,
-    ):
+    """Single-worker reliable FIFO: acknowledge only after the callback is stored."""
+    def __init__(self, queue_name: str, redis_url: str, timeout: int):
         self._client = redis.from_url(redis_url, decode_responses=False)
         self._queue = queue_name
+        self._processing = queue_name + ':processing'
         self._timeout = timeout
 
-    async def consume(self) -> bytes | None:
-        try:
-            result = await self._client.blpop([self._queue], timeout=self._timeout)
-            if not result:
-                return None
-            raw = result[1]
-            if isinstance(raw, str):
-                return raw.encode("utf-8")
-            return raw
-        except redis.RedisError as e:
-            raise TaskPayloadError(
-                f"Error reading from Redis queue {self._queue}: {e}"
-            ) from e
+    async def recover(self):
+        while await self._client.rpoplpush(self._processing, self._queue) is not None:
+            pass
 
-    async def close(self) -> None:
+    async def consume(self) -> bytes | None:
+        return await self._client.blmove(self._queue,self._processing,self._timeout,src='LEFT',dest='RIGHT')
+
+    async def ack(self, raw: bytes):
+        await self._client.lrem(self._processing,1,raw)
+
+    async def close(self):
         await self._client.aclose()

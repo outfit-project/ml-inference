@@ -31,7 +31,7 @@ class ProcessItemUseCase:
         except ClientError as e:
             code = e.response.get("Error", {}).get("Code", "")
             if code in ("NoSuchKey", "404", "NoSuchBucket"):
-                raise PermanentError(f"Object not found: {task.object_key}") from e
+                raise PermanentError("The stored photo could not be found. Please upload it again.") from e
             raise TransientError(f"Storage error: {e}") from e
         except BotoCoreError as e:
             raise TransientError(f"Storage error: {e}") from e
@@ -41,18 +41,25 @@ class ProcessItemUseCase:
         guard_image_dim(image, 10_000_000)
 
         loop = asyncio.get_running_loop()
-        embedding = await loop.run_in_executor(
+        analysis = await loop.run_in_executor(
             None,
-            partial(self._session.get_embedding, image),
+            partial(self._session.analyze, image),
         )
 
         try:
             await self._embedding_repo.save(
-                ItemEmbeddingResult(item_id=task.item_id, embedding=embedding)
+                ItemEmbeddingResult(item_id=task.item_id, **analysis)
             )
         except httpx.HTTPStatusError as e:
             if e.response.status_code >= 500:
                 raise TransientError(f"Wardrobe API error: {e}") from e
-            raise PermanentError(f"Wardrobe API error: {e}") from e
+            raise PermanentError("Processing result could not be saved. Please retry.") from e
         except httpx.HTTPError as e:
             raise TransientError(f"Wardrobe API error: {e}") from e
+
+
+    async def set_status(self,task,status,error=None):
+        try:
+            await self._embedding_repo.set_status(task.item_id,status,error)
+        except httpx.HTTPError as exc:
+            raise TransientError('Wardrobe callback unavailable') from exc
