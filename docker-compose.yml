@@ -1,4 +1,72 @@
-name: vestis
-include:
-  - path: ../../docker-compose.yml
-    env_file: ../../.env
+name: vestis-ml
+
+services:
+  ml-inference:
+    build: .
+    environment:
+      REDIS_URL: ${REDIS_URL:-redis://ml-redis:6379/0}
+      ML_TASKS_QUEUE: ${ML_TASKS_QUEUE:-ml_tasks}
+      ML_TASKS_DLQ: ${ML_TASKS_DLQ:-ml_tasks_dlq}
+      WARDROBE_PROCESSING_URL: ${WARDROBE_PROCESSING_URL:-http://outfit_wardrobe_api:8000/items/processing}
+      ML_SERVICE_TOKEN: ${ML_SERVICE_TOKEN:?Copy .env.example to .env and set ML_SERVICE_TOKEN}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://ml-minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-vestis}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?Set MINIO_SECRET_KEY in .env}
+      MINIO_BUCKET: ${MINIO_BUCKET:-wardrobe-photos}
+      EMBEDDING_DIM: "512"
+      OPENCLIP_MODEL_NAME: ${OPENCLIP_MODEL_NAME:-hf-hub:Marqo/marqo-fashionCLIP}
+      OPENCLIP_PRETRAINED: ${OPENCLIP_PRETRAINED:-}
+      INFERENCE_DEVICE: ${INFERENCE_DEVICE:-cpu}
+      MODEL_LOAD_ON_STARTUP: "true"
+      REDIS_BLPOP_TIMEOUT_SEC: ${REDIS_BLPOP_TIMEOUT_SEC:-5}
+      WORKER_MAX_RETRIES: ${WORKER_MAX_RETRIES:-3}
+      WORKER_RETRY_BACKOFF_MS: ${WORKER_RETRY_BACKOFF_MS:-500}
+      HF_HOME: /models
+      PYTHONUNBUFFERED: "1"
+    volumes: [model-cache:/models]
+    depends_on:
+      ml-redis: {condition: service_healthy}
+      ml-minio: {condition: service_healthy}
+    networks: [default, vestis]
+    healthcheck:
+      test: ["CMD", "test", "-f", "/tmp/worker-ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 60
+      start_period: 30s
+    restart: unless-stopped
+
+  ml-redis:
+    image: redis:7-alpine
+    command: [redis-server, --appendonly, "yes"]
+    volumes: [ml-redis-data:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  ml-minio:
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z@sha256:b6bfe7239bfc83fb90d31612d9704d86039dd714f7904b3f1ad68f211e602372
+    command: server /data --console-address :9001
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-vestis}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?Set MINIO_SECRET_KEY in .env}
+    volumes: [ml-photos:/data]
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+networks:
+  vestis:
+    external: true
+    name: ${VESTIS_NETWORK:-vestis-services}
+
+volumes:
+  ml-redis-data:
+  ml-photos:
+  model-cache:
