@@ -78,7 +78,6 @@ async def test_processing_callback_has_auth_and_full_ready_payload():
         requests.append(request)
         return httpx.Response(200)
     repo=DBEmbeddingRepository('http://wardrobe/items/processing','secret')
-    # HTTP is the external boundary; the repository builds the real request.
     original=httpx.AsyncClient
     def client(*args,**kwargs): return original(*args,transport=httpx.MockTransport(handler),**kwargs)
     from unittest.mock import patch
@@ -96,7 +95,6 @@ async def test_deleted_item_callbacks_do_not_block_next_task(monkeypatch, vanish
     import httpx
     import fakeredis.aioredis
     from src.application.use_cases.item_process import ProcessItemUseCase
-    from src.config.settings import Settings
     from src.infrasrtucture.db.embedding_repository import DBEmbeddingRepository
 
     first_id, second_id, owner = uuid4(), uuid4(), uuid4()
@@ -147,7 +145,7 @@ async def test_deleted_item_callbacks_do_not_block_next_task(monkeypatch, vanish
     }}).encode() for item_id, key in ((first_id, 'first'), (second_id, 'second'))]
     await redis.rpush('deleted-jobs', *messages)
     repository = DBEmbeddingRepository('http://wardrobe/items/processing', 'secret')
-    use_case = ProcessItemUseCase(Storage(), repository, Session(), Settings())
+    use_case = ProcessItemUseCase(Storage(), repository, Session())
     worker = asyncio.create_task(ItemWorker(consumer, Dead(), use_case, retry_backoff_ms=0).run())
 
     with pytest.raises(asyncio.CancelledError):

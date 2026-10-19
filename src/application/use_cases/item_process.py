@@ -1,10 +1,7 @@
 import asyncio
 from functools import partial
-import httpx
-from botocore.exceptions import BotoCoreError, ClientError
-from src.config.settings import Settings
-from src.domain.errors import PermanentError, TransientError
 from src.domain.interfaces.object_storage import IObjectStorage
+from src.domain.interfaces.processing_repository import IProcessingRepository
 from src.domain.schemas.items_entities import ItemEmbeddingResult, ItemProcessingTask
 from src.inference.preproccess.decode import decode_image_bytes
 from src.inference.preproccess.guard_image import guard_image_dim
@@ -16,25 +13,15 @@ class ProcessItemUseCase:
     def __init__(
             self,
             object_storage: IObjectStorage,
-            embedding_repo,
+            embedding_repo: IProcessingRepository,
             session: InferenceSession,
-            settings: Settings,
     ) -> None:
         self._storage = object_storage
         self._embedding_repo = embedding_repo
         self._session = session
-        self.settings = settings
 
     async def execute(self, task: ItemProcessingTask) -> None:
-        try:
-            image_bytes, _ = await self._storage.get_bytes(task.object_key)
-        except ClientError as e:
-            code = e.response.get("Error", {}).get("Code", "")
-            if code in ("NoSuchKey", "404", "NoSuchBucket"):
-                raise PermanentError("The stored photo could not be found. Please upload it again.") from e
-            raise TransientError(f"Storage error: {e}") from e
-        except BotoCoreError as e:
-            raise TransientError(f"Storage error: {e}") from e
+        image_bytes, _ = await self._storage.get_bytes(task.object_key)
 
         validate_image_bytes(image_bytes)
         image = decode_image_bytes(image_bytes)
@@ -46,20 +33,10 @@ class ProcessItemUseCase:
             partial(self._session.analyze, image),
         )
 
-        try:
-            await self._embedding_repo.save(
-                ItemEmbeddingResult(item_id=task.item_id, **analysis)
-            )
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code >= 500:
-                raise TransientError(f"Wardrobe API error: {e}") from e
-            raise PermanentError("Processing result could not be saved. Please retry.") from e
-        except httpx.HTTPError as e:
-            raise TransientError(f"Wardrobe API error: {e}") from e
+        await self._embedding_repo.save(
+            ItemEmbeddingResult(item_id=task.item_id, **analysis)
+        )
 
 
-    async def set_status(self,task,status,error=None):
-        try:
-            await self._embedding_repo.set_status(task.item_id,status,error)
-        except httpx.HTTPError as exc:
-            raise TransientError('Wardrobe callback unavailable') from exc
+    async def set_status(self, task: ItemProcessingTask, status: str, error: str | None = None) -> None:
+        await self._embedding_repo.set_status(task.item_id, status, error)

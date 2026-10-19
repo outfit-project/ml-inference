@@ -86,7 +86,6 @@ async def startup_worker(cfg: Settings | None = None) -> ItemWorker:
         object_storage=object_store,
         embedding_repo=_db_repo,
         session=session,
-        settings=cfg,
     )
 
     _worker = ItemWorker(
